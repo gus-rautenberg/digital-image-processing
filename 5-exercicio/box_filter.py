@@ -1,99 +1,98 @@
 import argparse
 from PIL import Image, ImageTk
 import tkinter as tk
+from tkinter import ttk
 
 def box_filter(image, ksize):
-    """
-    Aplica o filtro box (média) com um kernel de tamanho ksize x ksize.
-    A função percorre cada pixel da imagem e calcula a média dos pixels na
-    vizinhança definida pelo kernel. Para pixels próximos à borda, usa-se 
-    replicação da borda (valores são "esticados").
-    """
+    """ Aplica o filtro box (média) de tamanho ksize x ksize manualmente. """
     width, height = image.size
-    # Cria uma nova imagem para o resultado, no modo greyscale ("L")
     output = Image.new("L", (width, height))
-    
-    # Obtém objetos para acesso aos pixels
     pixels_in = image.load()
     pixels_out = output.load()
     
-    # Define o deslocamento para centralizar o kernel
     offset = ksize // 2
-    
+
     for y in range(height):
         for x in range(width):
             total = 0
-            count = ksize * ksize
-            # Percorre a vizinhança do pixel
-            for dy in range(ksize):
-                for dx in range(ksize):
-                    # Define as coordenadas do pixel na vizinhança
-                    ix = x - offset + dx
-                    iy = y - offset + dy
-                    # Replicação das bordas: se estiver fora, usa o valor da borda
-                    if ix < 0:
-                        ix = 0
-                    elif ix >= width:
-                        ix = width - 1
-                    if iy < 0:
-                        iy = 0
-                    elif iy >= height:
-                        iy = height - 1
+            count = 0
+            for dy in range(-offset, offset + 1):
+                for dx in range(-offset, offset + 1):
+                    ix = max(0, min(width - 1, x + dx))
+                    iy = max(0, min(height - 1, y + dy))
                     total += pixels_in[ix, iy]
-            # Calcula a média e atribui o novo valor ao pixel de saída
-            avg = total // count
-            pixels_out[x, y] = avg
-            
+                    count += 1
+            pixels_out[x, y] = total // count
+
     return output
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Aplica filtro box (2x2, 3x3, 5x5, 7x7) em uma imagem em greyscale e exibe as imagens."
-    )
-    parser.add_argument("imagem", help="Caminho para a imagem (em greyscale ou que será convertida).")
-    args = parser.parse_args()
-    
-    # Abre a imagem e converte para greyscale (modo "L")
-    image = Image.open(args.imagem).convert("L")
-    
-    # Aplica os filtros box com os tamanhos solicitados
-    filtered_2 = box_filter(image, 2)
-    filtered_3 = box_filter(image, 3)
-    filtered_5 = box_filter(image, 5)
-    filtered_7 = box_filter(image, 7)
-    
-    # Cria uma janela usando Tkinter para exibir as imagens
+def save_images(image, filtered_images, filename):
+    """ Salva todas as imagens com nomes apropriados. """
+    image.save("original.png")
+    kernel_sizes = [2, 3, 5, 7]
+
+    for i, img in enumerate(filtered_images):
+        img.save(f"filtro_{kernel_sizes[i]}x{kernel_sizes[i]}.png")
+
+def display_images(image, filtered_images):
+    """ Exibe imagens organizadas dinamicamente conforme o espaço disponível. """
     root = tk.Tk()
-    root.title("Imagem Original e Filtros Box")
+    root.title("Filtros Box - Organização Dinâmica")
+
+    canvas = tk.Canvas(root)
+    scroll_y = ttk.Scrollbar(root, orient=tk.VERTICAL, command=canvas.yview)
+    scroll_x = ttk.Scrollbar(root, orient=tk.HORIZONTAL, command=canvas.xview)
     
-    # Cria objetos PhotoImage para cada imagem (usando ImageTk)
-    photo_original = ImageTk.PhotoImage(image)
-    photo_2 = ImageTk.PhotoImage(filtered_2)
-    photo_3 = ImageTk.PhotoImage(filtered_3)
-    photo_5 = ImageTk.PhotoImage(filtered_5)
-    photo_7 = ImageTk.PhotoImage(filtered_7)
+    frame = tk.Frame(canvas)
+    canvas.create_window((0, 0), window=frame, anchor="nw")
+
+    # Atualizar scrollbars
+    frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
+
+    scroll_x.pack(side=tk.BOTTOM, fill=tk.X)
+    scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
+    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    # Lista de imagens a exibir
+    images = [image] + filtered_images
+    labels = ["Original", "Filtro 2x2", "Filtro 3x3", "Filtro 5x5", "Filtro 7x7"]
+
+    photos = [ImageTk.PhotoImage(img) for img in images]
+
+    # Distribuir imagens dinamicamente em linhas e colunas
+    max_width = root.winfo_screenwidth() - 100  # Largura máxima disponível
+    row, col, row_width = 0, 0, 0
+
+    for i, (label, photo) in enumerate(zip(labels, photos)):
+        img_width = photo.width() + 20  # Largura da imagem com espaçamento
     
-    # Organiza as imagens em uma grade
-    # Linha 0: Original, Filtro 2x2, Filtro 3x3
-    # Linha 1: Filtro 5x5, Filtro 7x7
-    # Rótulos
-    tk.Label(root, text="Original").grid(row=0, column=0, padx=5, pady=5)
-    tk.Label(root, text="Filtro Box 2x2").grid(row=0, column=1, padx=5, pady=5)
-    tk.Label(root, text="Filtro Box 3x3").grid(row=0, column=2, padx=5, pady=5)
-    tk.Label(root, text="Filtro Box 5x5").grid(row=1, column=0, padx=5, pady=5)
-    tk.Label(root, text="Filtro Box 7x7").grid(row=1, column=1, padx=5, pady=5)
-    
-    # Imagens
-    tk.Label(root, image=photo_original).grid(row=0, column=0, padx=5, pady=(25,5))
-    tk.Label(root, image=photo_2).grid(row=0, column=1, padx=5, pady=(25,5))
-    tk.Label(root, image=photo_3).grid(row=0, column=2, padx=5, pady=(25,5))
-    tk.Label(root, image=photo_5).grid(row=1, column=0, padx=5, pady=5)
-    tk.Label(root, image=photo_7).grid(row=1, column=1, padx=5, pady=5)
-    
-    # Se desejar, pode deixar uma célula vazia para manter a grade
-    tk.Label(root, text="").grid(row=1, column=2, padx=5, pady=5)
-    
+        if row_width + img_width > max_width:  # Se passar do limite, vai para a linha de baixo
+            row += 1
+            col = 0
+            row_width = 0
+
+        frame_widget = tk.Frame(frame)
+        frame_widget.grid(row=row, column=col, padx=10, pady=10)
+
+        tk.Label(frame_widget, text=label, font=("Arial", 12, "bold")).pack()
+        tk.Label(frame_widget, image=photo).pack()
+
+        col += 1
+        row_width += img_width  # Atualiza a largura ocupada na linha
+
     root.mainloop()
+
+def main():
+    parser = argparse.ArgumentParser(description="Aplica filtros Box em uma imagem em greyscale.")
+    parser.add_argument("imagem", help="Caminho para a imagem")
+    args = parser.parse_args()
+
+    image = Image.open(args.imagem).convert("L")
+    filtered_images = [box_filter(image, k) for k in [2, 3, 5, 7]]
+
+    save_images(image, filtered_images, args.imagem)
+    display_images(image, filtered_images)
 
 if __name__ == "__main__":
     main()

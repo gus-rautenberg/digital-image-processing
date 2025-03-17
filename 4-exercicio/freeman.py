@@ -6,6 +6,9 @@ from PIL import Image
 DIRECTIONS = [(1, 0), (1, -1), (0, -1), (-1, -1),
               (-1, 0), (-1, 1), (0, 1), (1, 1)]
 
+# DIRECTIONS = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+
+
 def load_binary_image(image_path):
     """Carrega e converte a imagem para binária (preto e branco)."""
     image = Image.open(image_path).convert("L")  # Converte para escala de cinza
