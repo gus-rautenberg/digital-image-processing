@@ -1,5 +1,5 @@
 import argparse
-import math
+import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 
@@ -10,10 +10,10 @@ THRESHOLD = 0.01  # Limiar para detecção de zero-crossing
 
 def load_image(image_path):
     """
-    Carrega uma imagem em escala de cinza e a converte para uma matriz (lista de listas) de intensidades.
+    Carrega uma imagem em escala de cinza e a converte para um array NumPy.
     """
     img = Image.open(image_path).convert("L")
-    return [[img.getpixel((x, y)) for x in range(img.width)] for y in range(img.height)]
+    return np.array(img, dtype=np.float32)
 
 def show_images(original, edges):
     """
@@ -36,86 +36,44 @@ def show_images(original, edges):
 
 def convolve(image, kernel):
     """
-    Convolui manualmente a imagem com o kernel fornecido.
+    Convolui a imagem com o kernel fornecido usando scipy.
     """
-    image_h = len(image)
-    image_w = len(image[0])
-    kernel_h = len(kernel)
-    kernel_w = len(kernel[0])
-    pad_h = kernel_h // 2
-    pad_w = kernel_w // 2
-    
-    # Cria uma imagem "padded" com zeros
-    padded = [[0] * (image_w + 2 * pad_w) for _ in range(image_h + 2 * pad_h)]
-    for i in range(image_h):
-        for j in range(image_w):
-            padded[i + pad_h][j + pad_w] = image[i][j]
-    
-    # Convolução
-    output = [[0] * image_w for _ in range(image_h)]
-    for i in range(image_h):
-        for j in range(image_w):
-            acc = 0
-            for ki in range(kernel_h):
-                for kj in range(kernel_w):
-                    acc += padded[i + ki][j + kj] * kernel[ki][kj]
-            output[i][j] = acc
-    return output
+    from scipy.ndimage import convolve
+    return convolve(image, kernel, mode='constant', cval=0.0)
 
 def gaussian_kernel(size, sigma):
     """
-    Gera um kernel Gaussiano n x n a partir de G(x,y)=exp(-(x²+y²)/(2σ²)).
-    Normaliza o kernel para que a soma dos elementos seja 1.
+    Gera um kernel Gaussiano n x n.
     """
-    if size % 2 == 0:
-        size += 1
-    half = size // 2
-    kernel = []
-    sum_total = 0
-    for y in range(-half, half + 1):
-        row = []
-        for x in range(-half, half + 1):
-            value = math.exp(-((x**2 + y**2) / (2 * sigma**2)))
-            row.append(value)
-            sum_total += value
-        kernel.append(row)
-    # Normalização
-    for i in range(size):
-        for j in range(size):
-            kernel[i][j] /= sum_total
-    return kernel
+    ax = np.linspace(-(size // 2), size // 2, size)
+    xx, yy = np.meshgrid(ax, ax)
+    kernel = np.exp(-(xx**2 + yy**2) / (2. * sigma**2))
+    return kernel / np.sum(kernel)
 
 def laplacian_filter(image):
     """
-    Aplica a máscara Laplaciana [1 1 1; 1 -8 1; 1 1 1] na imagem.
+    Aplica a máscara Laplaciana.
     """
-    laplacian_mask = [
+    laplacian_mask = np.array([
         [0, 1, 0],
         [1, -4, 1],
         [0, 1, 0]
-    ]
+    ], dtype=np.float32)
     return convolve(image, laplacian_mask)
 
 def zero_crossing(image, threshold=0.0):
     """
     Detecta zero-crossings na imagem do LoG.
-    Um pixel é considerado borda se, em sua vizinhança 3x3, houver valores menores que -threshold e maiores que threshold.
     """
-    rows = len(image)
-    cols = len(image[0])
-    zc = [[0] * cols for _ in range(rows)]
+    rows, cols = image.shape
+    zc = np.zeros_like(image, dtype=np.uint8)
     
     for i in range(1, rows - 1):
         for j in range(1, cols - 1):
-            patch = [
-                image[i-1][j-1], image[i-1][j], image[i-1][j+1],
-                image[i][j-1],   image[i][j],   image[i][j+1],
-                image[i+1][j-1], image[i+1][j], image[i+1][j+1]
-            ]
-            min_val = min(patch)
-            max_val = max(patch)
+            patch = image[i-1:i+2, j-1:j+2]
+            min_val, max_val = patch.min(), patch.max()
             if min_val < -threshold and max_val > threshold:
-                zc[i][j] = 255
+                zc[i, j] = 255
     return zc
 
 def main():
