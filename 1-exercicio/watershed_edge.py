@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from PIL import Image
 import sys
+import numpy as np
 import matplotlib.pyplot as plt
 
 # Parâmetro: porcentagem do background (em relação ao gradiente máximo)
@@ -25,32 +26,25 @@ def show_images(original, edges):
     plt.tight_layout()
     plt.show()
 
-# Como a imagem já está em grayscale, basta extrair a matriz de intensidades.
 def image_to_matrix(image):
-    width, height = image.size
-    pixels = list(image.getdata())
-    matrix = []
-    for y in range(height):
-        row = []
-        for x in range(width):
-            row.append(pixels[y * width + x])
-        matrix.append(row)
-    return matrix
+    """
+    Converte a imagem em um array numpy de intensidades.
+    """
+    return np.array(image)
 
-# Cálculo simples do gradiente: diferença absoluta com o vizinho direito e inferior
 def compute_gradient(matrix):
-    height = len(matrix)
-    width = len(matrix[0])
-    grad = [[0]*width for _ in range(height)]
-    for y in range(height):
-        for x in range(width):
-            gx = abs(matrix[y][x+1] - matrix[y][x]) if x < width - 1 else 0
-            gy = abs(matrix[y+1][x] - matrix[y][x]) if y < height - 1 else 0
-            grad[y][x] = gx + gy
+    """
+    Calcula o gradiente da imagem utilizando a diferença entre os pixels vizinhos.
+    """
+    grad_x = np.diff(matrix, axis=1, append=0)  # Gradiente no eixo X
+    grad_y = np.diff(matrix, axis=0, append=0)  # Gradiente no eixo Y
+    grad = np.abs(grad_x) + np.abs(grad_y)      # Gradiente total
     return grad
 
-# Função para obter vizinhos (8-conectividade)
 def get_neighbors(x, y, width, height):
+    """
+    Retorna os vizinhos (8-conectividade) de um pixel (x, y).
+    """
     neighbors = []
     for dy in [-1, 0, 1]:
         for dx in [-1, 0, 1]:
@@ -61,73 +55,65 @@ def get_neighbors(x, y, width, height):
                 neighbors.append((nx, ny))
     return neighbors
 
-# Implementação do flood fill "na mão" sem usar deque
 def flood_fill(x, y, label, grad, threshold, labels):
-    height = len(grad)
-    width = len(grad[0])
+    """
+    Preenche a região com o rótulo fornecido usando flood fill.
+    """
+    height, width = grad.shape
     queue = [(x, y)]
-    labels[y][x] = label
+    labels[y, x] = label
     while queue:
-        cx, cy = queue.pop(0)  # Remoção FIFO usando pop(0)
+        cx, cy = queue.pop(0)  # Remoção FIFO
         for nx, ny in get_neighbors(cx, cy, width, height):
-            if labels[ny][nx] == -1 and grad[ny][nx] < threshold:
-                labels[ny][nx] = label
+            if labels[ny, nx] == -1 and grad[ny, nx] < threshold:
+                labels[ny, nx] = label
                 queue.append((nx, ny))
 
 def watershed_segmentation(image_path):
-    # Carregar a imagem. Como ela já está em grayscale, não há necessidade de converter.
+    """
+    Realiza a segmentação Watershed na imagem.
+    """
+    # Carregar a imagem
     img = Image.open(image_path)
     if img.mode != "L":
         img = img.convert("L")
     
     matrix = image_to_matrix(img)
-    height = len(matrix)
-    width = len(matrix[0])
+    height, width = matrix.shape
 
-    # Calcular o gradiente da imagem
+    # Calcular o gradiente
     grad = compute_gradient(matrix)
-    max_grad = max(max(row) for row in grad)
+    max_grad = np.max(grad)
     threshold = BACKGROUND_PERCENTAGE * max_grad
 
-    # Inicializa a matriz de rótulos; -1 significa "não processado"
-    labels = [[-1]*width for _ in range(height)]
+    # Inicializa a matriz de rótulos (-1 significa não processado)
+    labels = -np.ones((height, width), dtype=int)
     next_label = 1  # labels positivos para regiões, 0 para watershed (bordas)
 
     # Marcar os marcadores (regiões de background) onde o gradiente é baixo
     for y in range(height):
         for x in range(width):
-            if grad[y][x] < threshold and labels[y][x] == -1:
+            if grad[y, x] < threshold and labels[y, x] == -1:
                 flood_fill(x, y, next_label, grad, threshold, labels)
                 next_label += 1
 
     # Criar uma lista de pixels não marcados, ordenados pelo valor do gradiente
-    pixel_list = []
-    for y in range(height):
-        for x in range(width):
-            if labels[y][x] == -1:
-                pixel_list.append((grad[y][x], x, y))
+    pixel_list = [(grad[y, x], x, y) for y in range(height) for x in range(width) if labels[y, x] == -1]
     pixel_list.sort(key=lambda t: t[0])
 
     # Inundação: define a linha de watershed (bordas) onde há conflito de rótulos
     WATERSHED = 0
     for g, x, y in pixel_list:
-        neighbor_labels = set()
-        for nx, ny in get_neighbors(x, y, width, height):
-            if labels[ny][nx] != -1:
-                neighbor_labels.add(labels[ny][nx])
+        neighbor_labels = set(labels[ny, nx] for nx, ny in get_neighbors(x, y, width, height) if labels[ny, nx] != -1)
         if len(neighbor_labels) == 0:
             continue
         elif len(neighbor_labels) == 1:
-            labels[y][x] = neighbor_labels.pop()
+            labels[y, x] = neighbor_labels.pop()
         else:
-            labels[y][x] = WATERSHED
+            labels[y, x] = WATERSHED
 
     # Criar a imagem de saída: pixels com label 0 serão pretos (bordas)
-    out_img = Image.new("L", (width, height))
-    out_pixels = out_img.load()
-    for y in range(height):
-        for x in range(width):
-            out_pixels[x, y] = 0 if labels[y][x] == WATERSHED else 255
+    out_img = Image.fromarray(np.uint8(labels == WATERSHED) * 255)
 
     # Exibir a imagem original e a imagem de bordas lado a lado
     show_images(img, out_img)
