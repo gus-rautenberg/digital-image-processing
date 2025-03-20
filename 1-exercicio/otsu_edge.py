@@ -1,24 +1,20 @@
 import argparse
+import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 
 def load_image(image_path):
     """
-    Carrega uma imagem em escala de cinza e a converte para uma matriz (lista de listas) de intensidades.
+    Carrega uma imagem em escala de cinza e a converte para uma matriz (array) de intensidades.
     """
     img = Image.open(image_path).convert("L")
-    width, height = img.size
-    return [[img.getpixel((x, y)) for x in range(width)] for y in range(height)]
+    return np.array(img)
 
 def compute_histogram(image):
     """
     Calcula o histograma da imagem (valores de 0 a 255).
     """
-    histogram = [0] * 256
-    for row in image:
-        for pixel in row:
-            histogram[pixel] += 1
-    return histogram
+    return np.histogram(image, bins=np.arange(257))[0]
 
 def otsu_threshold(image):
     """
@@ -28,17 +24,15 @@ def otsu_threshold(image):
       - threshold: valor de limiar calculado.
     """
     histogram = compute_histogram(image)
-    total = sum(histogram)
+    total = image.size
     
-    sum_total = 0
-    for i in range(256):
-        sum_total += i * histogram[i]
+    sum_total = np.sum(np.arange(256) * histogram)
     
     sum_b = 0
     weight_b = 0
     var_max = 0
     threshold = 0
-
+    
     for t in range(256):
         weight_b += histogram[t]
         if weight_b == 0:
@@ -62,13 +56,7 @@ def apply_threshold(image, threshold):
     """
     Aplica a binarização na imagem utilizando o limiar calculado.
     """
-    height = len(image)
-    width = len(image[0])
-    bin_image = [[0] * width for _ in range(height)]
-    for i in range(height):
-        for j in range(width):
-            bin_image[i][j] = 255 if image[i][j] > threshold else 0
-    return bin_image
+    return np.where(image > threshold, 255, 0)
 
 def show_images(original, binarized, threshold):
     """
