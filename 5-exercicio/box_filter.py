@@ -4,7 +4,6 @@ import tkinter as tk
 from tkinter import ttk
 
 def box_filter(image, ksize):
-    """ Aplica o filtro box (média) de tamanho ksize x ksize manualmente. """
     width, height = image.size
     output = Image.new("L", (width, height))
     pixels_in = image.load()
@@ -27,7 +26,6 @@ def box_filter(image, ksize):
     return output
 
 def save_images(image, filtered_images, filename):
-    """ Salva todas as imagens com nomes apropriados. """
     image.save("original.png")
     kernel_sizes = [2, 3, 5, 7]
 
@@ -35,7 +33,6 @@ def save_images(image, filtered_images, filename):
         img.save(f"filtro_{kernel_sizes[i]}x{kernel_sizes[i]}.png")
 
 def display_images(image, filtered_images):
-    """ Exibe imagens organizadas dinamicamente conforme o espaço disponível. """
     root = tk.Tk()
     root.title("Filtros Box - Organização Dinâmica")
 
@@ -54,20 +51,18 @@ def display_images(image, filtered_images):
     scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
     canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    # Lista de imagens a exibir
     images = [image] + filtered_images
     labels = ["Original", "Filtro 2x2", "Filtro 3x3", "Filtro 5x5", "Filtro 7x7"]
 
     photos = [ImageTk.PhotoImage(img) for img in images]
 
-    # Distribuir imagens dinamicamente em linhas e colunas
     max_width = root.winfo_screenwidth() - 100  # Largura máxima disponível
     row, col, row_width = 0, 0, 0
 
     for i, (label, photo) in enumerate(zip(labels, photos)):
-        img_width = photo.width() + 20  # Largura da imagem com espaçamento
+        img_width = photo.width() + 20  
     
-        if row_width + img_width > max_width:  # Se passar do limite, vai para a linha de baixo
+        if row_width + img_width > max_width:  
             row += 1
             col = 0
             row_width = 0
@@ -79,8 +74,7 @@ def display_images(image, filtered_images):
         tk.Label(frame_widget, image=photo).pack()
 
         col += 1
-        row_width += img_width  # Atualiza a largura ocupada na linha
-
+        row_width += img_width  
     root.mainloop()
 
 def main():

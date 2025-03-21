@@ -17,14 +17,12 @@ def convert_to_grayscale(image_path, output_path):
     pixels = img.load()
     width, height = img.size
     
-    # Converte para escala de cinza usando a fórmula: 0.299*R + 0.587*G + 0.114*B
     for i in range(width):
         for j in range(height):
             r, g, b = pixels[i, j]
             gray = int(0.299 * r + 0.587 * g + 0.114 * b)
             pixels[i, j] = (gray, gray, gray)
     
-    # Salva a imagem convertida
     img.save(output_path)
     print(f"Imagem convertida para escala de cinza e salva em: {output_path}")
 

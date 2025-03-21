@@ -21,21 +21,16 @@ def segment_pixel(value):
     elif 201 <= value <= 255:
         return 255
     else:
-        return value  # Caso não esteja em nenhum intervalo (não deve ocorrer em greyscale)
+        return value  
 
 def segment_image(image):
-    """
-    Percorre cada pixel da imagem em greyscale e aplica a segmentação.
-    """
+
     width, height = image.size
-    # Cria uma nova imagem para o resultado, no modo 'L' (greyscale)
     segmented = Image.new("L", (width, height))
     
-    # Obtem os objetos de acesso aos pixels
     pixels_in = image.load()
     pixels_out = segmented.load()
     
-    # Percorre cada pixel manualmente
     for y in range(height):
         for x in range(width):
             original_value = pixels_in[x, y]
@@ -51,14 +46,11 @@ def main():
     parser.add_argument("imagem", help="Caminho para a sua foto.")
     args = parser.parse_args()
     
-    # Abre a imagem e converte para greyscale
     img = Image.open(args.imagem)
     gray = img.convert("L")
     
-    # Aplica a segmentação
     segmented = segment_image(gray)
     
-    # Exibe as imagens (as janelas podem variar de acordo com o sistema)
     gray.show(title="Imagem em Greyscale")
     segmented.show(title="Imagem Segmentada")
     segmented.save("../images/greyscale_segmented.png")

@@ -1,12 +1,9 @@
-import cv2
 import argparse
 from PIL import Image
 
 # Direções da Cadeia de Freeman (sentido horário)
 DIRECTIONS = [(1, 0), (1, -1), (0, -1), (-1, -1),
               (-1, 0), (-1, 1), (0, 1), (1, 1)]
-
-# DIRECTIONS = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
 
 
 def load_binary_image(image_path):
@@ -44,36 +41,39 @@ def freeman_chain(image, width, height):
     while True:
         found = False
         for i in range(8):
-            dir_index = (prev_dir + i) % 8  # Percorre as direções no sentido horário
+            dir_index = (prev_dir + i) % 8 
             dx, dy = DIRECTIONS[dir_index]
             nx, ny = x + dx, y + dy
 
             if 0 <= nx < width and 0 <= ny < height and image[ny][nx] == 255:
                 chain_code.append(dir_index)
-                image[y][x] = 0  # Marca como visitado
+                image[y][x] = 0  
                 x, y = nx, ny
-                prev_dir = (dir_index + 6) % 8  # Ajusta a direção para continuar a borda
+                prev_dir = (dir_index + 6) % 8  
                 found = True
                 break
 
         if not found or (x, y) == start:
-            break  # Sai se não encontrar mais pixels ou se voltar ao início
+            break  
 
     return chain_code
 
 def main():
     parser = argparse.ArgumentParser(description="Algoritmo da Cadeia de Freeman em uma imagem binária.")
     parser.add_argument("imagem", help="Caminho para a imagem binária")
+    parser.add_argument("--saida", default="freeman_chain.txt", help="Arquivo de saída para salvar a cadeia de Freeman")
     args = parser.parse_args()
 
-    # Carregar e processar a imagem
     image, width, height = load_binary_image(args.imagem)
-
-    # Aplicar o Algoritmo da Cadeia de Freeman
     chain = freeman_chain(image, width, height)
 
-    # Exibir resultado
-    print("Código da Cadeia de Freeman:", "".join(map(str, chain)))
+    chain_str = "".join(map(str, chain))
+    print("Código da Cadeia de Freeman:", chain_str)
+
+    # Salva o código em um arquivo TXT
+    with open(args.saida, "w") as f:
+        f.write(chain_str)
+    print(f"Cadeia de Freeman salva em: {args.saida}")
 
 if __name__ == "__main__":
     main()
